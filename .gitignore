@@ -1,0 +1,30 @@
+# Environnements & dépendances
+.venv/
+env/
+venv/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Caches & IDE
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+.cache/
+.DS_Store
+.vscode/
+.idea/
+
+# Artefacts lourds / temporaires
+**/site-packages/
+*.whl
+*.tar.gz
+*.zip
+
+# Modèles / poids (si jamais)
+*.safetensors
+*.bin
+*.pt
+
+# Logs
+*.log
