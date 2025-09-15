@@ -5,6 +5,7 @@ venv/
 **/__pycache__/
 *.py[cod]
 *.egg-info/
+*.eggs/
 
 # Caches & IDE
 .ipynb_checkpoints/
@@ -21,7 +22,7 @@ venv/
 *.tar.gz
 *.zip
 
-# Modèles / poids (si jamais)
+# Modèles / poids
 *.safetensors
 *.bin
 *.pt
