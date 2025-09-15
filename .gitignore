@@ -29,3 +29,8 @@ venv/
 
 # Logs
 *.log
+
+# ne versionne pas les CSV bruts
+data/*.csv
+# mais garde les compressés
+!data/*.csv.gz
