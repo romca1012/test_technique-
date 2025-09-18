@@ -4,7 +4,7 @@ Implémentation **Python** d'un système de recommandations de critiques **intra
 **embeddings sémantiques** (sentence-transformers) + **rerank lexical** (TF‑IDF).
 
 ## Données
-Le corpus combiné est dans `data/sample_reviews.csv` avec les colonnes :
+La donnée doit etre ajouté dans un dossier data a la racine du repository`data/` :
 ```
 review_id,movie_id,movie_title,user_id,rating,title,body,created_at,lang
 ```
@@ -17,11 +17,6 @@ pip install -r requirements.txt
 
 uvicorn src.api:app --reload --port 8000
 # → http://127.0.0.1:8000/similar?review_id=<ID>&k=3
-```
-
-## Tests
-```bash
-pytest -q
 ```
 
 ## Utiliser 2 fichiers CSV séparés (sans fusionner)
