@@ -44,6 +44,7 @@ Le système charge et **normalise** ces fichiers au démarrage, en mémoire, san
 
 ## 2) Vue d’ensemble (composants)
 
+```mermaid
 flowchart LR
 subgraph Ingestion_Preparation
 A[CSV: fightclub_critiques.csv]:::file
@@ -52,7 +53,6 @@ C[repository.py - read/normalize]:::comp
 D[preprocessing.py - normalize_text + make_corpus_row]:::comp
 end
 
-
 subgraph Similarity_Engine
 E[embedder.py - SentenceTransformers]:::comp
 F[indexer.py - kNN cosine]:::comp
@@ -60,9 +60,7 @@ G[hybrid_ranker.py - TF-IDF (1,2) + cosine]:::comp
 H[explainer.py - RapidFuzz + keywords]:::comp
 end
 
-
 I[FastAPI /similar (uvicorn)]:::api
-
 
 A --> C
 B --> C
@@ -72,22 +70,10 @@ I -->|review_id,k| F
 F -->|same movie pool| G
 G --> H --> I
 
-
 classDef comp fill:#eef6ff,stroke:#5b8def,color:#0b3b8c;
 classDef api fill:#e8fff3,stroke:#21a47a,color:#0d5c43;
 classDef file fill:#fff7e6,stroke:#d5a54a,color:#7a4f08;
-
-**Explications**
-
-* **Repository** : lecture CSV résiliente (encodage, séparateur, lignes invalides) + mapping d’alias vers un schéma commun.
-* **Preprocessing** : nettoyage fort + corpus "titre. corps".
-* **Embedder** : encode `text_norm` → vecteurs normalisés.
-* **Index kNN** : recherche des voisins (cosine) puis **filtre par `movie_id`**.
-* **HybridRanker** : rerank sémantique (embeddings) + lexical (TF-IDF) avec `alpha=0.75`.
-* **Explainer** : 2 phrases proches + 5 mots-clés.
-* **API** : expose `/similar?review_id=...&k=...`, gère 404/400, limite `k`.
-
----
+```
 
 ## 3) Choix techniques (et pourquoi)
 
