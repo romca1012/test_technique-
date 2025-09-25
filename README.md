@@ -49,24 +49,24 @@ flowchart LR
   subgraph Ingestion_Preparation
     A[CSV fightclub_critiques.csv]:::file
     B[CSV interstellar_critiques.csv]:::file
-    C[repository.py read/normalize]:::comp
+    C[repository.py read and normalize]:::comp
     D[preprocessing.py normalize_text and make_corpus_row]:::comp
   end
 
   subgraph Similarity_Engine
     E[embedder.py SentenceTransformers]:::comp
     F[indexer.py kNN cosine]:::comp
-    G[hybrid_ranker.py TFIDF unigrams bigrams and cosine]:::comp
-    H[explainer.py RapidFuzz and keywords]:::comp
+    G[hybrid_ranker.py TFIDF unigrams bigrams cosine]:::comp
+    H[explainer.py RapidFuzz keywords]:::comp
   end
 
-  I[FastAPI /similar (uvicorn)]:::api
+  I[FastAPI endpoint similar]:::api
 
   A --> C
   B --> C
   C --> D --> E --> F
   D --> G
-  I -->|review_id,k| F
+  I -->|review_id and k| F
   F -->|same movie pool| G
   G --> H --> I
 
