@@ -1,5 +1,7 @@
 # Similar Reviews (same movie) — SensCritique (Demo)
 
+# TEST
+
 Implémentation **Python** d'un système de recommandations de critiques **intra-film**, avec
 **embeddings sémantiques** (sentence-transformers) + **rerank lexical** (TF‑IDF).
 
@@ -26,3 +28,164 @@ Par défaut, la configuration lit **deux fichiers** placés dans `data/` :
 
 Vous pouvez modifier ces chemins/identifiants dans `src/config.py` (section `sources`).  
 Le système charge et **normalise** ces fichiers au démarrage, en mémoire, sans créer de fichier combiné.
+
+
+
+## 1) Objectif & contraintes
+
+* **Objectif** : proposer, pour une critique lue, d’autres **critiques du même film** au contenu **sémantiquement proche**.
+* **Contraintes** :
+
+  * Temps de réponse court (P95 < 300 ms sur \~quelques milliers de critiques / film).
+  * Données en CSV hétérogènes (noms de colonnes variés) → **normalisation**.
+  * **Explicabilité** : phrases proches & mots-clés.
+
+---
+
+## 2) Vue d’ensemble (composants)
+
+```mermaid
+flowchart LR
+  subgraph Ingestion & Préparation
+    A[CSV<br/>fightclub_critiques.csv]:::file
+    B[CSV<br/>interstellar_critiques.csv]:::file
+    C[Repository.py<br/>Lecture robuste + normalisation]:::comp
+    D[Preprocessing.py<br/>normalize_text + make_corpus_row]:::comp
+  end
+
+  subgraph Moteur de similarité (mémoire)
+    E[Embedder.py<br/>Sentence-Transformers]:::comp
+    F[Index kNN<br/>NearestNeighbors(cosine)]:::comp
+    G[HybridRanker<br/>TF-IDF (1,2) + cosine]:::comp
+    H[Explainer<br/>RapidFuzz + keywords]:::comp
+  end
+
+  I[FastAPI /similar<br/>Uvicorn]:::api
+
+  A --> C
+  B --> C
+  C --> D --> E --> F
+  D --> G
+  I -->|review_id,k| F
+  F -->|pool même film| G
+  G --> H --> I
+
+classDef comp fill:#eef6ff,stroke:#5b8def,color:#0b3b8c;
+classDef api fill:#e8fff3,stroke:#21a47a,color:#0d5c43;
+classDef file fill:#fff7e6,stroke:#d5a54a,color:#7a4f08;
+```
+
+**Explications**
+
+* **Repository** : lecture CSV résiliente (encodage, séparateur, lignes invalides) + mapping d’alias vers un schéma commun.
+* **Preprocessing** : nettoyage fort + corpus "titre. corps".
+* **Embedder** : encode `text_norm` → vecteurs normalisés.
+* **Index kNN** : recherche des voisins (cosine) puis **filtre par `movie_id`**.
+* **HybridRanker** : rerank sémantique (embeddings) + lexical (TF-IDF) avec `alpha=0.75`.
+* **Explainer** : 2 phrases proches + 5 mots-clés.
+* **API** : expose `/similar?review_id=...&k=...`, gère 404/400, limite `k`.
+
+---
+
+## 3) Choix techniques (et pourquoi)
+
+* **Python + FastAPI (Uvicorn)** : écosystème ML riche, FastAPI performant, typing & validation, docs auto.
+* **Sentence-Transformers – paraphrase-multilingual-MiniLM-L12-v2** :
+
+  * Multilingue FR/EN, **rapide** (dim. ≈ 384), bon compromis qualité/latence.
+  * `normalize_embeddings=True` → cosine = dot product.
+* **scikit-learn NearestNeighbors(metric='cosine', algorithm='brute')** :
+
+  * Simple & fiable pour **quelques milliers** d’items.
+  * Filtrage métier **même film** appliqué après la recherche (pool > k) pour assurer du rappel.
+* **TF-IDF (1,2-gram)** :
+
+  * Capte la proximité **lexicale** (mots/bigrammes), complémentaire à la sémantique.
+* **RapidFuzz** : explications rapides et robustes (token\_set\_ratio).
+* **pandas** : ingestion & nettoyage tabulaire.
+
+**Trade-offs**
+
+* *Brute force kNN* : OK au départ ; pour des millions d’items, passer à **FAISS/HNSW**.
+* *Embeddings à chaud* : calculés au démarrage. À l’échelle → **pré-calcul** & persistance.
+
+---
+
+## 4) Flux de requête (/similar)
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant API as FastAPI
+  participant Rec as ReviewRecommender
+  participant Idx as kNN Index
+  participant Rank as HybridRanker
+  participant Exp as Explainer
+
+  Client->>API: GET /similar?review_id=R&k=K
+  API->>Rec: similar(R,K)
+  Rec->>Rec: by_id(R) + q_text + q_emb
+  Rec->>Idx: query_same_movie(q_emb, movie_id, pool=50)
+  Idx-->>Rec: cand_ids + sem_sims (même film)
+  Rec->>Rank: score(q_text, cand_indices, sem_sims, α)
+  Rank-->>Rec: order + scores
+  Rec->>Exp: matching_sentences + keywords
+  Exp-->>Rec: explanations
+  Rec-->>API: top-K (≥ min_sim)
+  API-->>Client: JSON results
+```
+
+## 5) Contrat d’API (extrait)
+
+`GET /similar?review_id=<str>&k=<int(1..20)>`
+
+**200**
+
+```json
+{
+  "review_id": "FC_20761",
+  "top_k": 5,
+  "results": [
+    {
+      "review_id": "FC_...",
+      "movie_id": "FC",
+      "movie_title": "Fight Club",
+      "user_id": "...",
+      "rating": 4.5,
+      "title": "...",
+      "snippet": "...",
+      "similarity": 0.8123,
+      "explanations": {
+        "matching_sentences": ["...","..."],
+        "keywords": ["violence","bagarre", "..."]
+      }
+    }
+  ]
+}
+```
+
+**404** : `review_id not found` • **400** : corpus vide/erreur de chargement.
+
+---
+
+## 6) Pourquoi cette pile ? (en une ligne chacun)
+
+* **FastAPI** : perfs + typing + DX excellente.
+* **Sentence‑Transformers (MiniLM)** : sémantique multilingue rapide.
+* **kNN cosine** : simplicité & robustesse au volume initial.
+* **TF‑IDF** : précision lexicale complémentaire.
+* **RapidFuzz** : explications légères et utiles au produit.
+
+---
+
+## 7) Roadmap courte
+
+1. Artefacts persistés (embeddings, index) pour démarrages rapides.
+2. FAISS/HNSW quand le volume augmente.
+3. Rerank enrichi (signaux produit) + A/B tests.
+4. Feature flags (seuils, alpha) et dashboard de monitoring.
+
+
+
+
+L’IA m’a aidé à structurer l’explication d’architecture et à relire la documentation. Le code Python et les choix finaux ont été réalisés et validés par moi à l'exception de l'hybrid ranker qui allie proximité sémantique et lexicale et de l organisation de l appel des fonctions clés dans le fichier recommender.py .
