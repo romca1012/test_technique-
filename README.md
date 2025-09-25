@@ -46,34 +46,35 @@ Le système charge et **normalise** ces fichiers au démarrage, en mémoire, san
 
 ```mermaid
 flowchart LR
-subgraph Ingestion_Preparation
-A[CSV: fightclub_critiques.csv]:::file
-B[CSV: interstellar_critiques.csv]:::file
-C[repository.py - read/normalize]:::comp
-D[preprocessing.py - normalize_text + make_corpus_row]:::comp
-end
+  subgraph Ingestion_Preparation
+    A[CSV fightclub_critiques.csv]:::file
+    B[CSV interstellar_critiques.csv]:::file
+    C[repository.py read/normalize]:::comp
+    D[preprocessing.py normalize_text and make_corpus_row]:::comp
+  end
 
-subgraph Similarity_Engine
-E[embedder.py - SentenceTransformers]:::comp
-F[indexer.py - kNN cosine]:::comp
-G[hybrid_ranker.py - TF-IDF (1,2) + cosine]:::comp
-H[explainer.py - RapidFuzz + keywords]:::comp
-end
+  subgraph Similarity_Engine
+    E[embedder.py SentenceTransformers]:::comp
+    F[indexer.py kNN cosine]:::comp
+    G[hybrid_ranker.py TFIDF unigrams bigrams and cosine]:::comp
+    H[explainer.py RapidFuzz and keywords]:::comp
+  end
 
-I[FastAPI /similar (uvicorn)]:::api
+  I[FastAPI /similar (uvicorn)]:::api
 
-A --> C
-B --> C
-C --> D --> E --> F
-D --> G
-I -->|review_id,k| F
-F -->|same movie pool| G
-G --> H --> I
+  A --> C
+  B --> C
+  C --> D --> E --> F
+  D --> G
+  I -->|review_id,k| F
+  F -->|same movie pool| G
+  G --> H --> I
 
-classDef comp fill:#eef6ff,stroke:#5b8def,color:#0b3b8c;
-classDef api fill:#e8fff3,stroke:#21a47a,color:#0d5c43;
-classDef file fill:#fff7e6,stroke:#d5a54a,color:#7a4f08;
-```
+  classDef comp fill:#eef6ff,stroke:#5b8def,color:#0b3b8c;
+  classDef api fill:#e8fff3,stroke:#21a47a,color:#0d5c43;
+  classDef file fill:#fff7e6,stroke:#d5a54a,color:#7a4f08;
+  ```
+
 
 ## 3) Choix techniques (et pourquoi)
 
